@@ -4,28 +4,34 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useState, useRef, useEffect } from "react";
 
-export default function BasicChatInterface() {
-  const { messages, sendMessage, status } = useChat({
+export default function ChatInterfaceWithErrorHandling() {
+  const { messages, sendMessage, status, error, regenerate, clearError } = useChat({
     transport: new DefaultChatTransport({
-      api: "/api/basic-chat-interface",
+      api: "/api/chat-bot",
     }),
+    onError: (err) => {
+      // Server-side errors are already logged in the route. This is for
+      // client-side observability (e.g. wiring up Sentry later).
+      console.error("Chat error:", err);
+    },
   });
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, status]);
+  }, [messages, status, error]);
 
-  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!input.trim()) return;
     sendMessage({ text: input });
     setInput("");
   };
 
-  const isSubmitted = status === "submitted"; // request sent, no tokens yet
-  const isStreaming = status === "streaming"; // tokens arriving
+  const isSubmitted = status === "submitted";
+  const isStreaming = status === "streaming";
+  const isErrored = status === "error";
   const isBusy = isSubmitted || isStreaming;
 
   return (
@@ -89,20 +95,28 @@ export default function BasicChatInterface() {
           animation: glowPulse 2s ease-in-out infinite;
         }
 
+        @keyframes errorIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .error-enter {
+          animation: errorIn 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
         @media (prefers-reduced-motion: reduce) {
-          .message-enter, .think-orb span, .stream-cursor, .input-glow:focus-within {
+          .message-enter, .think-orb span, .stream-cursor, .input-glow:focus-within, .error-enter {
             animation: none !important;
           }
         }
       `}</style>
 
       <header className="border-b border-purple-900/50 bg-linear-to-r from-purple-950 via-black to-blue-950 px-6 py-4">
-        <h1 className="bg-linear-to-r from-purple-400 to-blue-400 bg-clip-text text-xl font-bold text-transparent">Basic Chat Interface</h1>
+        <h1 className="bg-linear-to-r from-purple-400 to-blue-400 bg-clip-text text-xl font-bold text-transparent">Chat Interface with Error Handling</h1>
       </header>
 
       <div className="flex-1 overflow-y-auto px-6 py-4">
         <div className="mx-auto flex max-w-2xl flex-col gap-4">
-          {messages.length === 0 && <p className="mt-10 text-center text-gray-500">Ask me anything to start the conversation.</p>}
+          {messages.length === 0 && !isErrored && <p className="mt-10 text-center text-gray-500">Ask me anything to start the conversation.</p>}
 
           {messages.map((m, idx) => {
             const isLastAssistant = m.role === "assistant" && idx === messages.length - 1;
@@ -133,6 +147,22 @@ export default function BasicChatInterface() {
                   <span />
                 </div>
                 <span className="text-sm">Thinking…</span>
+              </div>
+            </div>
+          )}
+
+          {isErrored && error && (
+            <div className="error-enter flex justify-start">
+              <div className="flex max-w-[85%] flex-col gap-3 rounded-2xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-red-100">
+                <p className="text-sm leading-relaxed">{error.message}</p>
+                <div className="flex gap-2">
+                  <button onClick={() => regenerate()} className="rounded-full border border-red-700 px-3 py-1 text-xs font-medium text-red-100 transition-colors hover:bg-red-900/40">
+                    Try again
+                  </button>
+                  <button onClick={() => clearError()} className="rounded-full px-3 py-1 text-xs font-medium text-red-300/70 transition-colors hover:text-red-100">
+                    Dismiss
+                  </button>
+                </div>
               </div>
             </div>
           )}
