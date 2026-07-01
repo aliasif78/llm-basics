@@ -1,7 +1,7 @@
 // app/extract-ticket/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Fraunces, JetBrains_Mono } from "next/font/google";
 import type { SupportTicket } from "../api/extract-ticket/route";
 
@@ -28,6 +28,18 @@ export default function ExtractTicketPage() {
   const [description, setDescription] = useState("");
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [mouse, setMouse] = useState({ x: 0.5, y: 0.5 });
+
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      setMouse({
+        x: e.clientX / window.innerWidth,
+        y: e.clientY / window.innerHeight,
+      });
+    };
+    window.addEventListener("mousemove", move);
+    return () => window.removeEventListener("mousemove", move);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -87,7 +99,7 @@ export default function ExtractTicketPage() {
     : [];
 
   return (
-    <div className="min-h-screen" style={{ background: "#0B0B12", color: "#E7E5EF" }}>
+    <div className="relative min-h-screen" style={{ background: "#0B0B12", color: "#E7E5EF" }}>
       <style>{`
         @keyframes drawRule { from { width: 0%; } to { width: 100%; } }
         @keyframes transcribe {
@@ -122,7 +134,18 @@ export default function ExtractTicketPage() {
         }
       `}</style>
 
-      <div className="mx-auto max-w-xl px-6 py-16">
+      {/* ── Cursor-following gold glow ── */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-0"
+        style={{
+          background: `radial-gradient(ellipse 55% 45% at ${mouse.x * 100}% ${mouse.y * 100}%, rgba(212,175,106,0.10) 0%, transparent 70%)`,
+          transition: "background 80ms linear",
+        }}
+      />
+
+      {/* ── Content (sits above the glow) ── */}
+      <div className="relative z-10 mx-auto max-w-xl px-6 py-16">
         <p className={mono.className} style={{ fontSize: 11, letterSpacing: "0.15em", color: "#8C899C", marginBottom: 8 }}>
           INVENTORY · SUPPORT
         </p>

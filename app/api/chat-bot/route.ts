@@ -30,24 +30,100 @@ function estimateTokens(text: string): number {
 }
 
 // ---------------------------------------------------------------------------
+// 429 classification
+// ---------------------------------------------------------------------------
+// A 429 from Google can mean two entirely different things:
+//
+//   RATE_LIMITED      — too many requests per minute. Retry after the delay
+//                       the API tells you to wait. Quota resets in seconds.
+//
+//   QUOTA_EXHAUSTED   — daily (or monthly) free-tier cap hit. The quota
+//                       metric name contains "free_tier". Retrying in
+//                       milliseconds is pointless — fail fast.
+//
+// Conflating them (treating all 429s as "retry soon") wastes 3 retry slots
+// burning 1-2 seconds before an inevitable failure, and gives the user a
+// misleading "try again in a moment" message when the real answer is
+// "come back tomorrow or add billing."
+
+type RateLimitKind = "rate_limited" | "quota_exhausted";
+
+function classify429(error: APICallError): RateLimitKind {
+  try {
+    const body = typeof error.responseBody === "string" ? JSON.parse(error.responseBody) : error.responseBody;
+
+    // Google surfaces quota exhaustion via RESOURCE_EXHAUSTED status and
+    // a quotaMetric name that contains "free_tier".
+    if (body?.error?.status === "RESOURCE_EXHAUSTED") {
+      const violations: Array<{ quotaMetric?: string }> = body?.error?.details?.find((d: { "@type": string }) => d["@type"] === "type.googleapis.com/google.rpc.QuotaFailure")?.violations ?? [];
+
+      const isFreeTierExhaustion = violations.some((v) => v.quotaMetric?.includes("free_tier"));
+
+      if (isFreeTierExhaustion) return "quota_exhausted";
+    }
+  } catch {
+    // Unparseable body — treat conservatively as rate-limited so we still
+    // attempt a retry rather than silently dropping a potentially transient error.
+  }
+
+  return "rate_limited";
+}
+
+// ---------------------------------------------------------------------------
+// Retry delay
+// ---------------------------------------------------------------------------
+// Google's API includes a RetryInfo detail with the exact number of seconds
+// to wait. Using it is strictly better than our own backoff: it avoids
+// both retrying too early (wasting a slot) and waiting longer than necessary.
+// Fall back to exponential backoff only when the header is absent.
+
+const BASE_DELAY_MS = 500;
+
+function getRetryDelayMs(error: APICallError, attempt: number): number {
+  try {
+    const body = typeof error.responseBody === "string" ? JSON.parse(error.responseBody) : error.responseBody;
+
+    const retryInfo = body?.error?.details?.find((d: { "@type": string }) => d["@type"] === "type.googleapis.com/google.rpc.RetryInfo");
+
+    if (retryInfo?.retryDelay) {
+      // retryDelay arrives as e.g. "38s" or "38.834098922s"
+      const seconds = parseFloat(retryInfo.retryDelay.replace("s", ""));
+      if (!isNaN(seconds) && seconds > 0) {
+        return Math.ceil(seconds * 1000);
+      }
+    }
+  } catch {
+    // Fall through to exponential backoff.
+  }
+
+  return BASE_DELAY_MS * 2 ** attempt;
+}
+
+// ---------------------------------------------------------------------------
 // Retry policy
 // ---------------------------------------------------------------------------
 const MAX_RETRIES = 2;
-const BASE_DELAY_MS = 500;
 
 function isRetryable(error: unknown): boolean {
-  if (APICallError.isInstance(error)) {
-    // 429 = rate limited, 5xx = transient provider failure. Both are worth
-    // retrying. A 4xx other than 429 means the request itself is malformed
-    // or rejected — retrying it will fail identically every time, so don't.
-    return error.statusCode === 429 || (error.statusCode !== undefined && error.statusCode >= 500);
+  if (!APICallError.isInstance(error)) return false;
+
+  if (error.statusCode !== undefined && error.statusCode >= 500) return true;
+
+  if (error.statusCode === 429) {
+    // Only retry genuine rate limits, not exhausted quotas.
+    return classify429(error) === "rate_limited";
   }
+
   return false;
 }
 
 function describeError(error: unknown): string {
   if (APICallError.isInstance(error)) {
     if (error.statusCode === 429) {
+      const kind = classify429(error);
+      if (kind === "quota_exhausted") {
+        return "You've hit the daily request limit for this assistant. Add billing to your Google AI project at ai.dev, or try again tomorrow.";
+      }
       return "The assistant is receiving too many requests right now. Please wait a moment and try again.";
     }
     if (error.statusCode !== undefined && error.statusCode >= 500) {
@@ -93,8 +169,13 @@ async function startStreamWithRetry(modelMessages: Awaited<ReturnType<typeof con
       return { reader, first };
     } catch (error) {
       lastError = error;
+
       if (attempt === MAX_RETRIES || !isRetryable(error)) throw error;
-      await sleep(BASE_DELAY_MS * 2 ** attempt);
+
+      // Wait whatever the API tells us to wait — not our own fixed backoff.
+      const delayMs = APICallError.isInstance(error) ? getRetryDelayMs(error, attempt) : BASE_DELAY_MS * 2 ** attempt;
+
+      await sleep(delayMs);
     }
   }
 
@@ -102,6 +183,9 @@ async function startStreamWithRetry(modelMessages: Awaited<ReturnType<typeof con
   throw lastError;
 }
 
+// ---------------------------------------------------------------------------
+// Route handler
+// ---------------------------------------------------------------------------
 export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json();
   const modelMessages = await convertToModelMessages(messages);
