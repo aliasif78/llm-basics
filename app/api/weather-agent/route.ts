@@ -3,7 +3,7 @@ import { google } from '@ai-sdk/google';
 import { streamText, convertToModelMessages, createUIMessageStream, createUIMessageStreamResponse, APICallError, toUIMessageStream, tool, type UIMessage, type UIMessageChunk, isStepCount } from 'ai';
 import { z } from 'zod';
 
-export const maxDuration = 60; // tools make external HTTP calls; give them room
+export const maxDuration = 60;
 
 // ---------------------------------------------------------------------------
 // WMO weather code → human description
@@ -56,9 +56,7 @@ function aqiCategory(aqi: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Error description — same philosophy as chat-bot route: typed errors,
-// actionable messages. Kept simpler here because the focus of this route
-// is tool calling mechanics, not retry handling.
+// Error description
 // ---------------------------------------------------------------------------
 function describeError(error: unknown): string {
   if (APICallError.isInstance(error)) {
@@ -85,6 +83,12 @@ export async function POST(req: Request) {
   // the real forwarded IP, which Vercel populates in production.
   const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? req.headers.get('x-real-ip') ?? '';
 
+  console.log('[weather-agent] POST received', {
+    messageCount: messages.length,
+    lastUserMessage: messages.filter((m) => m.role === 'user').at(-1)?.parts,
+    clientIp: clientIp || '(unknown — local dev)',
+  });
+
   // ---------------------------------------------------------------------------
   // Tool definitions
   // All five are defined inside the handler so the location tool can
@@ -99,12 +103,13 @@ export async function POST(req: Request) {
       description: "Detect the user's approximate location from their IP address. " + "Use when the user refers to 'here', 'my location', 'where I am', " + 'or any implicit current location without naming a specific city.',
       inputSchema: z.object({}),
       execute: async () => {
-        const url = clientIp ? `https://ipapi.co/${clientIp}/json/` : 'https://ipapi.co/json/';
+        console.log('[weather-agent] tool:get_user_location → calling ipapi.co', { clientIp: clientIp || '(self-lookup)' });
 
-        const res = await fetch(url, {
-          headers: { 'User-Agent': 'WeatherAgent/1.0' },
-        });
+        const url = clientIp ? `https://ipapi.co/${clientIp}/json/` : 'https://ipapi.co/json/';
+        const res = await fetch(url, { headers: { 'User-Agent': 'WeatherAgent/1.0' } });
+
         if (!res.ok) {
+          console.error('[weather-agent] tool:get_user_location → ipapi.co error', { status: res.status });
           throw new Error(`Location lookup failed with status ${res.status}`);
         }
 
@@ -120,10 +125,11 @@ export async function POST(req: Request) {
         };
 
         if (data.error) {
+          console.error('[weather-agent] tool:get_user_location → ipapi.co returned error', { reason: data.reason });
           throw new Error(data.reason ?? 'Location lookup returned an error');
         }
 
-        return {
+        const result = {
           city: data.city,
           region: data.region,
           country: data.country_name,
@@ -131,6 +137,9 @@ export async function POST(req: Request) {
           longitude: data.longitude,
           timezone: data.timezone,
         };
+
+        console.log('[weather-agent] tool:get_user_location ✓', result);
+        return result;
       },
     }),
 
@@ -143,9 +152,13 @@ export async function POST(req: Request) {
         city: z.string().describe("The city name to look up, e.g. 'Tokyo' or 'London, UK' or 'São Paulo'"),
       }),
       execute: async ({ city }) => {
+        console.log('[weather-agent] tool:geocode_city → calling open-meteo geocoding', { city });
+
         const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`;
         const res = await fetch(url);
+
         if (!res.ok) {
+          console.error('[weather-agent] tool:geocode_city → geocoding error', { city, status: res.status });
           throw new Error(`Geocoding failed with status ${res.status}`);
         }
 
@@ -160,17 +173,21 @@ export async function POST(req: Request) {
         };
 
         if (!data.results?.length) {
+          console.warn('[weather-agent] tool:geocode_city → no results', { city });
           throw new Error(`Could not find geographic coordinates for "${city}". Try a more specific name.`);
         }
 
         const r = data.results[0];
-        return {
+        const result = {
           city: r.name,
           country: r.country,
           latitude: r.latitude,
           longitude: r.longitude,
           timezone: r.timezone,
         };
+
+        console.log('[weather-agent] tool:geocode_city ✓', result);
+        return result;
       },
     }),
 
@@ -185,11 +202,15 @@ export async function POST(req: Request) {
         units: z.enum(['celsius', 'fahrenheit']).default('celsius').describe('Temperature unit to use in the response'),
       }),
       execute: async ({ latitude, longitude, units }) => {
+        console.log('[weather-agent] tool:get_current_weather → calling open-meteo', { latitude, longitude, units });
+
         const tempUnit = units === 'fahrenheit' ? 'fahrenheit' : 'celsius';
         const url = [`https://api.open-meteo.com/v1/forecast`, `?latitude=${latitude}&longitude=${longitude}`, `&current=temperature_2m,apparent_temperature,relative_humidity_2m,`, `weather_code,wind_speed_10m,precipitation`, `&temperature_unit=${tempUnit}`, `&wind_speed_unit=kmh`, `&timezone=auto`].join('');
 
         const res = await fetch(url);
+
         if (!res.ok) {
+          console.error('[weather-agent] tool:get_current_weather → open-meteo error', { status: res.status });
           throw new Error(`Weather fetch failed with status ${res.status}`);
         }
 
@@ -205,7 +226,7 @@ export async function POST(req: Request) {
         };
 
         const c = data.current;
-        return {
+        const result = {
           temperature: c.temperature_2m,
           feels_like: c.apparent_temperature,
           humidity: c.relative_humidity_2m,
@@ -214,6 +235,9 @@ export async function POST(req: Request) {
           description: wmoDescription(c.weather_code),
           unit: tempUnit === 'celsius' ? '°C' : '°F',
         };
+
+        console.log('[weather-agent] tool:get_current_weather ✓', result);
+        return result;
       },
     }),
 
@@ -229,11 +253,15 @@ export async function POST(req: Request) {
         units: z.enum(['celsius', 'fahrenheit']).default('celsius').describe('Temperature unit'),
       }),
       execute: async ({ latitude, longitude, days, units }) => {
+        console.log('[weather-agent] tool:get_forecast → calling open-meteo', { latitude, longitude, days, units });
+
         const tempUnit = units === 'fahrenheit' ? 'fahrenheit' : 'celsius';
         const url = [`https://api.open-meteo.com/v1/forecast`, `?latitude=${latitude}&longitude=${longitude}`, `&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum`, `&temperature_unit=${tempUnit}`, `&timezone=auto`, `&forecast_days=${days}`].join('');
 
         const res = await fetch(url);
+
         if (!res.ok) {
+          console.error('[weather-agent] tool:get_forecast → open-meteo error', { status: res.status });
           throw new Error(`Forecast fetch failed with status ${res.status}`);
         }
 
@@ -249,8 +277,7 @@ export async function POST(req: Request) {
 
         const d = data.daily;
         const unit = tempUnit === 'celsius' ? '°C' : '°F';
-
-        return {
+        const result = {
           unit,
           days: d.time.map((date, i) => ({
             date,
@@ -260,6 +287,13 @@ export async function POST(req: Request) {
             precipitation_mm: d.precipitation_sum[i],
           })),
         };
+
+        console.log('[weather-agent] tool:get_forecast ✓', {
+          unit,
+          dayCount: result.days.length,
+          firstDay: result.days[0],
+        });
+        return result;
       },
     }),
 
@@ -273,10 +307,14 @@ export async function POST(req: Request) {
         longitude: z.number().describe('Longitude of the location'),
       }),
       execute: async ({ latitude, longitude }) => {
+        console.log('[weather-agent] tool:get_air_quality → calling open-meteo air quality', { latitude, longitude });
+
         const url = [`https://air-quality-api.open-meteo.com/v1/air-quality`, `?latitude=${latitude}&longitude=${longitude}`, `&current=pm10,pm2_5,european_aqi`, `&timezone=auto`].join('');
 
         const res = await fetch(url);
+
         if (!res.ok) {
+          console.error('[weather-agent] tool:get_air_quality → open-meteo error', { status: res.status });
           throw new Error(`Air quality fetch failed with status ${res.status}`);
         }
 
@@ -289,12 +327,15 @@ export async function POST(req: Request) {
         };
 
         const c = data.current;
-        return {
+        const result = {
           pm2_5: c.pm2_5,
           pm10: c.pm10,
           european_aqi: c.european_aqi,
           category: aqiCategory(c.european_aqi),
         };
+
+        console.log('[weather-agent] tool:get_air_quality ✓', result);
+        return result;
       },
     }),
   };
@@ -324,6 +365,8 @@ Tool usage rules:
   // ---------------------------------------------------------------------------
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
+      console.log('[weather-agent] stream execute start');
+
       const result = streamText({
         model: google('gemini-2.5-flash-lite'),
         system: systemPrompt,
@@ -333,14 +376,23 @@ Tool usage rules:
       });
 
       const reader = toUIMessageStream({ stream: result.stream }).getReader();
+      let chunkCount = 0;
+
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
         writer.write(value as UIMessageChunk);
+        chunkCount++;
       }
+
+      console.log('[weather-agent] stream execute complete', { chunkCount });
     },
     onError: (error) => {
-      console.error('weather-agent route error:', error);
+      console.error('[weather-agent] stream error', {
+        type: error instanceof Error ? error.constructor.name : typeof error,
+        message: error instanceof Error ? error.message : String(error),
+        ...(APICallError.isInstance(error) && { statusCode: error.statusCode }),
+      });
       return describeError(error);
     },
   });

@@ -14,9 +14,9 @@ const fraunces = Fraunces({
 const mono = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '500'] });
 
 // ---------------------------------------------------------------------------
-// Tool metadata — drives both the sidebar cards and the inline invocation cards
+// Tool metadata
 // ---------------------------------------------------------------------------
-const ACCENT = '#0EA5E9'; // sky-500
+const ACCENT = '#0EA5E9';
 
 type ToolName = 'get_user_location' | 'geocode_city' | 'get_current_weather' | 'get_forecast' | 'get_air_quality';
 
@@ -77,7 +77,7 @@ const TOOL_META: Record<ToolName, { label: string; description: string; icon: Re
 const TOOL_NAMES = Object.keys(TOOL_META) as ToolName[];
 
 // ---------------------------------------------------------------------------
-// Tool result → compact one-line summary for the inline invocation card
+// Tool result → compact one-line summary
 // ---------------------------------------------------------------------------
 function summariseResult(toolName: string, result: unknown): string {
   const r = result as Record<string, unknown>;
@@ -87,9 +87,8 @@ function summariseResult(toolName: string, result: unknown): string {
         return `${r.city}, ${r.country}`;
       case 'geocode_city':
         return `${r.city}, ${r.country} · (${(r.latitude as number).toFixed(2)}, ${(r.longitude as number).toFixed(2)})`;
-      case 'get_current_weather': {
+      case 'get_current_weather':
         return `${r.temperature}${r.unit} · ${r.description} · ${r.humidity}% RH`;
-      }
       case 'get_forecast': {
         const days = (r.days as unknown[]).length;
         return `${days}-day forecast retrieved`;
@@ -127,7 +126,7 @@ function summariseArgs(toolName: string, args: unknown): string {
 }
 
 // ---------------------------------------------------------------------------
-// ToolInvocationCard — rendered inline inside assistant message parts
+// ToolInvocationCard
 // ---------------------------------------------------------------------------
 type ToolInvocationPart = {
   type: 'tool-invocation';
@@ -158,20 +157,8 @@ function ToolInvocationCard({ part }: { part: ToolInvocationPart }) {
         background: isDone ? 'rgba(14,165,233,0.04)' : 'rgba(14,165,233,0.08)',
         transition: 'border-color 300ms, background 300ms',
       }}>
-      {/* Status mark */}
-      <span
-        style={{
-          flexShrink: 0,
-          marginTop: 1,
-          color: isDone ? '#22C55E' : ACCENT,
-          fontSize: 11,
-          lineHeight: 1,
-        }}>
-        {isDone ? '✓' : '⟳'}
-      </span>
-
+      <span style={{ flexShrink: 0, marginTop: 1, color: isDone ? '#22C55E' : ACCENT, fontSize: 11, lineHeight: 1 }}>{isDone ? '✓' : '⟳'}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Tool label */}
         <p
           className={mono.className}
           style={{
@@ -183,15 +170,11 @@ function ToolInvocationCard({ part }: { part: ToolInvocationPart }) {
           }}>
           {meta?.label ?? part.toolName}
         </p>
-
-        {/* Args hint when pending */}
         {isPending && argHint && (
           <p className={mono.className} style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', margin: 0 }}>
             {argHint}
           </p>
         )}
-
-        {/* Result summary when done */}
         {isDone && part.result !== undefined && (
           <p className={mono.className} style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
             {summariseResult(part.toolName, part.result)}
@@ -203,7 +186,7 @@ function ToolInvocationCard({ part }: { part: ToolInvocationPart }) {
 }
 
 // ---------------------------------------------------------------------------
-// Sidebar ToolCard — one per available tool
+// Sidebar ToolCard
 // ---------------------------------------------------------------------------
 type ToolStatus = 'idle' | 'active' | 'used';
 
@@ -223,7 +206,6 @@ function SidebarToolCard({ name, status }: { name: ToolName; status: ToolStatus 
         position: 'relative',
         overflow: 'hidden',
       }}>
-      {/* Active shimmer */}
       {isActive && (
         <div
           style={{
@@ -236,15 +218,7 @@ function SidebarToolCard({ name, status }: { name: ToolName; status: ToolStatus 
           }}
         />
       )}
-
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 6,
-        }}>
-        {/* Icon + label */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <div
           style={{
             display: 'flex',
@@ -266,8 +240,6 @@ function SidebarToolCard({ name, status }: { name: ToolName; status: ToolStatus 
             {meta.label}
           </span>
         </div>
-
-        {/* Status dot */}
         <span
           style={{
             width: 6,
@@ -281,16 +253,7 @@ function SidebarToolCard({ name, status }: { name: ToolName; status: ToolStatus 
           }}
         />
       </div>
-
-      <p
-        style={{
-          fontSize: 11,
-          lineHeight: 1.5,
-          color: 'rgba(255,255,255,0.25)',
-          margin: 0,
-        }}>
-        {meta.description}
-      </p>
+      <p style={{ fontSize: 11, lineHeight: 1.5, color: 'rgba(255,255,255,0.25)', margin: 0 }}>{meta.description}</p>
     </div>
   );
 }
@@ -301,7 +264,12 @@ function SidebarToolCard({ name, status }: { name: ToolName; status: ToolStatus 
 export default function WeatherAgentPage() {
   const { messages, sendMessage, status, error, regenerate, clearError } = useChat({
     transport: new DefaultChatTransport({ api: '/api/weather-agent' }),
-    onError: (err) => console.error('Chat error:', err),
+    onError: (err) => {
+      console.error('[weather-agent] useChat onError', {
+        message: err.message,
+        name: err.name,
+      });
+    },
   });
 
   const [input, setInput] = useState('');
@@ -315,19 +283,37 @@ export default function WeatherAgentPage() {
   const isErrored = status === 'error';
   const isBusy = isSubmitted || isStreaming;
 
+  // Log status transitions
+  useEffect(() => {
+    console.log('[weather-agent] status →', status);
+  }, [status]);
+
+  // Log error state changes
+  useEffect(() => {
+    if (error) {
+      console.error('[weather-agent] error state set', { message: error.message, name: error.name });
+    }
+  }, [error]);
+
+  // Log message list changes — summarise parts rather than dumping the whole object
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const summary = messages.map((m) => ({
+      id: m.id,
+      role: m.role,
+      partTypes: m.parts.map((p) => (p as { type: string }).type),
+    }));
+    console.log('[weather-agent] messages updated', { count: messages.length, summary });
+  }, [messages]);
+
   // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, status, error]);
 
-  // Cursor glow (chat column only, tracked globally)
+  // Cursor glow
   useEffect(() => {
-    const move = (e: MouseEvent) => {
-      setMouse({
-        x: e.clientX / window.innerWidth,
-        y: e.clientY / window.innerHeight,
-      });
-    };
+    const move = (e: MouseEvent) => setMouse({ x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight });
     window.addEventListener('mousemove', move);
     return () => window.removeEventListener('mousemove', move);
   }, []);
@@ -344,6 +330,7 @@ export default function WeatherAgentPage() {
     e.preventDefault();
     const text = input.trim();
     if (!text || isBusy) return;
+    console.log('[weather-agent] sendMessage', { text });
     sendMessage({ text });
     setInput('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
@@ -354,18 +341,14 @@ export default function WeatherAgentPage() {
       e.preventDefault();
       const text = input.trim();
       if (!text || isBusy) return;
+      console.log('[weather-agent] sendMessage (Enter)', { text });
       sendMessage({ text });
       setInput('');
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // Derive tool statuses from message parts
-  // Scan all messages to find which tools are currently active or have been used.
-  // "active" = in-flight right now (state === 'call' or 'partial-call')
-  // "used" = completed at least once (state === 'result')
-  // ---------------------------------------------------------------------------
+  // Derive tool statuses and log active tool changes
   const toolStatuses = useMemo<Record<ToolName, ToolStatus>>(() => {
     const active = new Set<string>();
     const used = new Set<string>();
@@ -383,6 +366,10 @@ export default function WeatherAgentPage() {
       }
     }
 
+    if (active.size > 0) {
+      console.log('[weather-agent] tools active', { active: [...active] });
+    }
+
     const result = {} as Record<ToolName, ToolStatus>;
     for (const name of TOOL_NAMES) {
       result[name] = active.has(name) ? 'active' : used.has(name) ? 'used' : 'idle';
@@ -393,7 +380,6 @@ export default function WeatherAgentPage() {
   return (
     <div className="relative flex h-screen flex-col overflow-hidden" style={{ background: '#080810', color: '#E2E8F0' }}>
       <style>{`
-        /* ── Tool card pending pulse ── */
         @keyframes shimmer {
           0%   { background-position: -200% 0; }
           100% { background-position: 200% 0; }
@@ -402,15 +388,11 @@ export default function WeatherAgentPage() {
           0%, 100% { opacity: 1; }
           50%       { opacity: 0.3; }
         }
-
-        /* ── Message entrance ── */
         @keyframes msgIn {
           from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }
         }
         .msg-in { animation: msgIn 280ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-
-        /* ── Left border draw ── */
         @keyframes borderDraw {
           from { transform: scaleY(0); }
           to   { transform: scaleY(1); }
@@ -419,8 +401,6 @@ export default function WeatherAgentPage() {
           transform-origin: top center;
           animation: borderDraw 420ms cubic-bezier(0.16, 1, 0.3, 1) 60ms both;
         }
-
-        /* ── Thinking wave ── */
         @keyframes dotWave {
           0%, 80%, 100% { opacity: 0.12; transform: translateY(0); }
           40%            { opacity: 1;    transform: translateY(-4px); }
@@ -428,8 +408,6 @@ export default function WeatherAgentPage() {
         .dot-1 { animation: dotWave 1.3s ease-in-out 0s    infinite; }
         .dot-2 { animation: dotWave 1.3s ease-in-out 0.18s infinite; }
         .dot-3 { animation: dotWave 1.3s ease-in-out 0.36s infinite; }
-
-        /* ── Stream cursor ── */
         @keyframes cursorBlink {
           0%, 100% { opacity: 1; }
           50%       { opacity: 0; }
@@ -444,21 +422,15 @@ export default function WeatherAgentPage() {
           border-radius: 1px;
           animation: cursorBlink 0.9s step-start infinite;
         }
-
-        /* ── Input rule glow ── */
         @keyframes ruleGlow {
           0%, 100% { opacity: 0.35; }
           50%       { opacity: 1; }
         }
         .rule-active { animation: ruleGlow 2s ease-in-out infinite; }
-
-        /* ── Scrollbars ── */
         .scroll-thin::-webkit-scrollbar { width: 3px; }
         .scroll-thin::-webkit-scrollbar-track { background: transparent; }
         .scroll-thin::-webkit-scrollbar-thumb { background: #2D3748; border-radius: 2px; }
-
         textarea::placeholder { color: #4A5568; }
-
         @media (prefers-reduced-motion: reduce) {
           .msg-in, .border-draw, .dot-1, .dot-2, .dot-3,
           .stream-cursor, .rule-active,
@@ -466,7 +438,7 @@ export default function WeatherAgentPage() {
         }
       `}</style>
 
-      {/* ── Cursor glow ── */}
+      {/* Cursor glow */}
       <div
         aria-hidden
         className="pointer-events-none fixed inset-0 z-0"
@@ -476,7 +448,7 @@ export default function WeatherAgentPage() {
         }}
       />
 
-      {/* ── Full-width header ── */}
+      {/* Header */}
       <header className="relative z-10 flex shrink-0 items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
         <div className="flex items-center gap-3">
           <span
@@ -490,13 +462,7 @@ export default function WeatherAgentPage() {
               transition: 'box-shadow 400ms, background 400ms',
             }}
           />
-          <span
-            className={mono.className}
-            style={{
-              fontSize: 10.5,
-              letterSpacing: '0.22em',
-              color: '#6B7280',
-            }}>
+          <span className={mono.className} style={{ fontSize: 10.5, letterSpacing: '0.22em', color: '#6B7280' }}>
             WEATHER AGENT · 03
           </span>
         </div>
@@ -505,14 +471,12 @@ export default function WeatherAgentPage() {
         </span>
       </header>
 
-      {/* ── Two-column body ── */}
+      {/* Two-column body */}
       <div className="relative z-10 flex flex-1 overflow-hidden">
-        {/* ── Left: chat ── */}
+        {/* Chat column */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Messages */}
           <div className="scroll-thin flex-1 overflow-y-auto">
             <div className="mx-auto max-w-2xl px-6 py-10">
-              {/* Empty state */}
               {messages.length === 0 && !isErrored && (
                 <div className="flex min-h-[42vh] flex-col items-center justify-center gap-6 text-center">
                   <p
@@ -527,16 +491,7 @@ export default function WeatherAgentPage() {
                     }}>
                     Ask about the weather.
                   </p>
-                  <div
-                    className={mono.className}
-                    style={{
-                      fontSize: 10,
-                      letterSpacing: '0.2em',
-                      color: '#374151',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 4,
-                    }}>
+                  <div className={mono.className} style={{ fontSize: 10, letterSpacing: '0.2em', color: '#374151', display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <p style={{ margin: 0 }}>&ldquo;What&rsquo;s the weather here?&rdquo; · sequential</p>
                     <p style={{ margin: 0 }}>&ldquo;Air quality and forecast in Tokyo&rdquo; · parallel</p>
                     <p style={{ margin: 0 }}>&ldquo;Current conditions in London&rdquo; · single chain</p>
@@ -544,38 +499,20 @@ export default function WeatherAgentPage() {
                 </div>
               )}
 
-              {/* Message list */}
               <div className="flex flex-col gap-8">
                 {messages.map((m, idx) => {
                   const isUser = m.role === 'user';
                   const isLastAssistant = m.role === 'assistant' && idx === messages.length - 1;
                   const showCursor = isLastAssistant && isStreaming;
 
-                  // ── User message ──
                   if (isUser) {
                     return (
                       <div key={m.id} className="msg-in flex justify-end">
                         <div style={{ maxWidth: '72%' }}>
-                          <p
-                            className={mono.className}
-                            style={{
-                              fontSize: 9.5,
-                              letterSpacing: '0.2em',
-                              color: '#6B7280',
-                              marginBottom: 5,
-                              textAlign: 'right',
-                            }}>
+                          <p className={mono.className} style={{ fontSize: 9.5, letterSpacing: '0.2em', color: '#6B7280', marginBottom: 5, textAlign: 'right' }}>
                             YOU
                           </p>
-                          <p
-                            className={mono.className}
-                            style={{
-                              fontSize: 13.5,
-                              lineHeight: 1.75,
-                              color: '#9CA3AF',
-                              textAlign: 'right',
-                              wordBreak: 'break-word',
-                            }}>
+                          <p className={mono.className} style={{ fontSize: 13.5, lineHeight: 1.75, color: '#9CA3AF', textAlign: 'right', wordBreak: 'break-word' }}>
                             {m.parts.map((part, i) => ((part as { type: string }).type === 'text' ? <span key={i}>{(part as { text: string }).text}</span> : null))}
                           </p>
                         </div>
@@ -583,11 +520,8 @@ export default function WeatherAgentPage() {
                     );
                   }
 
-                  // ── Assistant message ──
-                  // Parts may include text and tool-invocation interleaved.
                   return (
                     <div key={m.id} className="msg-in flex gap-4">
-                      {/* Animated left border */}
                       <div
                         className="border-draw shrink-0"
                         style={{
@@ -599,45 +533,24 @@ export default function WeatherAgentPage() {
                         }}
                       />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p
-                          className={mono.className}
-                          style={{
-                            fontSize: 9.5,
-                            letterSpacing: '0.2em',
-                            color: '#6B7280',
-                            marginBottom: 8,
-                          }}>
+                        <p className={mono.className} style={{ fontSize: 9.5, letterSpacing: '0.2em', color: '#6B7280', marginBottom: 8 }}>
                           AGENT
                         </p>
-
                         {m.parts.map((part, i) => {
                           const p = part as { type: string };
-
                           if (p.type === 'text') {
                             const tp = part as { type: string; text: string };
                             const isLast = i === m.parts.length - 1;
                             return (
-                              <p
-                                key={i}
-                                className={mono.className}
-                                style={{
-                                  fontSize: 13.5,
-                                  lineHeight: 1.8,
-                                  color: '#E2E8F0',
-                                  wordBreak: 'break-word',
-                                  whiteSpace: 'pre-wrap',
-                                  margin: '4px 0',
-                                }}>
+                              <p key={i} className={mono.className} style={{ fontSize: 13.5, lineHeight: 1.8, color: '#E2E8F0', wordBreak: 'break-word', whiteSpace: 'pre-wrap', margin: '4px 0' }}>
                                 {tp.text}
                                 {showCursor && isLast && <span className="stream-cursor" />}
                               </p>
                             );
                           }
-
                           if (p.type === 'tool-invocation') {
                             return <ToolInvocationCard key={i} part={part as unknown as ToolInvocationPart} />;
                           }
-
                           return null;
                         })}
                       </div>
@@ -645,7 +558,6 @@ export default function WeatherAgentPage() {
                   );
                 })}
 
-                {/* Thinking state */}
                 {isSubmitted && (
                   <div className="msg-in flex gap-4">
                     <div
@@ -659,27 +571,12 @@ export default function WeatherAgentPage() {
                       }}
                     />
                     <div>
-                      <p
-                        className={mono.className}
-                        style={{
-                          fontSize: 9.5,
-                          letterSpacing: '0.2em',
-                          color: '#6B7280',
-                          marginBottom: 12,
-                        }}>
+                      <p className={mono.className} style={{ fontSize: 9.5, letterSpacing: '0.2em', color: '#6B7280', marginBottom: 12 }}>
                         AGENT
                       </p>
                       <div className="flex items-end gap-1">
                         {(['dot-1', 'dot-2', 'dot-3'] as const).map((cls) => (
-                          <span
-                            key={cls}
-                            className={`${cls} ${mono.className}`}
-                            style={{
-                              fontSize: 20,
-                              color: ACCENT,
-                              lineHeight: 1,
-                              display: 'inline-block',
-                            }}>
+                          <span key={cls} className={`${cls} ${mono.className}`} style={{ fontSize: 20, color: ACCENT, lineHeight: 1, display: 'inline-block' }}>
                             ·
                           </span>
                         ))}
@@ -688,7 +585,6 @@ export default function WeatherAgentPage() {
                   </div>
                 )}
 
-                {/* Error state */}
                 {isErrored && error && (
                   <div className="msg-in flex gap-4">
                     <div
@@ -702,54 +598,29 @@ export default function WeatherAgentPage() {
                       }}
                     />
                     <div>
-                      <p
-                        className={mono.className}
-                        style={{
-                          fontSize: 9.5,
-                          letterSpacing: '0.2em',
-                          color: '#B91C1C',
-                          marginBottom: 8,
-                        }}>
+                      <p className={mono.className} style={{ fontSize: 9.5, letterSpacing: '0.2em', color: '#B91C1C', marginBottom: 8 }}>
                         ERROR
                       </p>
-                      <p
-                        className={mono.className}
-                        style={{
-                          fontSize: 13,
-                          color: '#FCA5A5',
-                          lineHeight: 1.7,
-                          marginBottom: 14,
-                          wordBreak: 'break-word',
-                        }}>
+                      <p className={mono.className} style={{ fontSize: 13, color: '#FCA5A5', lineHeight: 1.7, marginBottom: 14, wordBreak: 'break-word' }}>
                         {error.message}
                       </p>
                       <div className="flex gap-6">
                         <button
-                          onClick={() => regenerate()}
+                          onClick={() => {
+                            console.log('[weather-agent] user triggered regenerate');
+                            regenerate();
+                          }}
                           className={mono.className}
-                          style={{
-                            fontSize: 10,
-                            letterSpacing: '0.18em',
-                            color: ACCENT,
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: 0,
-                          }}>
+                          style={{ fontSize: 10, letterSpacing: '0.18em', color: ACCENT, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                           ↺ RETRY
                         </button>
                         <button
-                          onClick={() => clearError()}
+                          onClick={() => {
+                            console.log('[weather-agent] user triggered clearError');
+                            clearError();
+                          }}
                           className={mono.className}
-                          style={{
-                            fontSize: 10,
-                            letterSpacing: '0.18em',
-                            color: '#4B5563',
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: 0,
-                          }}>
+                          style={{ fontSize: 10, letterSpacing: '0.18em', color: '#4B5563', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                           DISMISS
                         </button>
                       </div>
@@ -762,7 +633,7 @@ export default function WeatherAgentPage() {
             </div>
           </div>
 
-          {/* ── Input composer ── */}
+          {/* Input composer */}
           <div className="shrink-0">
             <div
               className={inputFocused ? 'rule-active' : ''}
@@ -827,71 +698,25 @@ export default function WeatherAgentPage() {
           </div>
         </div>
 
-        {/* ── Right: tool sidebar ── */}
-        <aside
-          className="scroll-thin flex-none overflow-y-auto"
-          style={{
-            width: 272,
-            borderLeft: '1px solid rgba(255,255,255,0.04)',
-            padding: '20px 16px',
-          }}>
-          <p
-            className={mono.className}
-            style={{
-              fontSize: 9,
-              letterSpacing: '0.22em',
-              color: '#374151',
-              textTransform: 'uppercase',
-              marginBottom: 14,
-            }}>
+        {/* Tool sidebar */}
+        <aside className="scroll-thin flex-none overflow-y-auto" style={{ width: 272, borderLeft: '1px solid rgba(255,255,255,0.04)', padding: '20px 16px' }}>
+          <p className={mono.className} style={{ fontSize: 9, letterSpacing: '0.22em', color: '#374151', textTransform: 'uppercase', marginBottom: 14 }}>
             Available Tools
           </p>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {TOOL_NAMES.map((name) => (
               <SidebarToolCard key={name} name={name} status={toolStatuses[name]} />
             ))}
           </div>
-
-          {/* Legend */}
-          <div
-            style={{
-              marginTop: 24,
-              paddingTop: 16,
-              borderTop: '1px solid rgba(255,255,255,0.04)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}>
+          <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[
               { color: '#374151', label: 'Idle' },
               { color: ACCENT, pulse: true, label: 'Active' },
               { color: '#22C55E', label: 'Used this session' },
             ].map((item) => (
-              <div
-                key={item.label}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}>
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    flexShrink: 0,
-                    background: item.color,
-                    boxShadow: item.pulse ? `0 0 5px ${item.color}` : 'none',
-                  }}
-                />
-                <span
-                  className={mono.className}
-                  style={{
-                    fontSize: 9.5,
-                    letterSpacing: '0.1em',
-                    color: '#4B5563',
-                  }}>
+              <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: item.color, boxShadow: item.pulse ? `0 0 5px ${item.color}` : 'none' }} />
+                <span className={mono.className} style={{ fontSize: 9.5, letterSpacing: '0.1em', color: '#4B5563' }}>
                   {item.label}
                 </span>
               </div>
