@@ -30,9 +30,10 @@ export default function Home() {
         .hero-enter   { animation: heroIn 800ms cubic-bezier(0.16,1,0.3,1) 100ms both; }
         .card-enter-1 { animation: cardIn 700ms cubic-bezier(0.16,1,0.3,1) 300ms both; }
         .card-enter-2 { animation: cardIn 700ms cubic-bezier(0.16,1,0.3,1) 420ms both; }
+        .card-enter-3 { animation: cardIn 700ms cubic-bezier(0.16,1,0.3,1) 540ms both; }
         @media (prefers-reduced-motion: reduce) {
-          .hero-enter, .card-enter-1, .card-enter-2 { animation: none !important; }
-        }
+          .hero-enter, .card-enter-1, .card-enter-2, .card-enter-3 { animation: none !important; }
+          }
       `}</style>
 
       {/* ── Aurora background ── */}
@@ -92,7 +93,7 @@ export default function Home() {
         </p>
 
         {/* Cards */}
-        <div className="grid w-full max-w-2xl grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="grid w-full max-w-2xl grid-cols-1 gap-5 md:grid-cols-3">
           <div className="card-enter-1">
             <ToolCard
               href="/chat-bot"
@@ -108,6 +109,7 @@ export default function Home() {
               }
             />
           </div>
+
           <div className="card-enter-2">
             <ToolCard
               href="/extract-ticket"
@@ -115,6 +117,24 @@ export default function Home() {
               title="Ticket Extractor"
               description="Natural language → typed support ticket via generateObject, Zod schema validation, and severity inference."
               accent="#D4AF6A"
+              accentAlt="#F59E0B"
+              icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ width: 22, height: 22 }}>
+                  <rect x="9" y="2" width="6" height="6" rx="1" />
+                  <path d="M9 8H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-4" />
+                  <path d="M9 13h6M9 17h4" />
+                </svg>
+              }
+            />
+          </div>
+
+          <div className="card-enter-2">
+            <ToolCard
+              href="/weather-agent"
+              eyebrow="03 · Tool Calling"
+              title="Weather Agent"
+              description="LLM agent with tool calling, streaming, and graceful error handling. Ask for the weather in any city, and the agent will call the Open-Meteo API to get the answer."
+              accent="#0EA5E9"
               accentAlt="#F59E0B"
               icon={
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ width: 22, height: 22 }}>
