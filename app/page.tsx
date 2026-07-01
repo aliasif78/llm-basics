@@ -1,23 +1,23 @@
-"use client";
+'use client';
 
-import { useRef, useState } from "react";
-import Link from "next/link";
-import { Fraunces, JetBrains_Mono } from "next/font/google";
-import SoftAurora from "@/components/SoftAurora";
+import { useRef, useState } from 'react';
+import Link from 'next/link';
+import { Fraunces, JetBrains_Mono } from 'next/font/google';
+import SoftAurora from '@/components/SoftAurora';
 
 const fraunces = Fraunces({
-  subsets: ["latin"],
-  weight: ["300", "400", "600"],
-  style: ["normal", "italic"],
+  subsets: ['latin'],
+  weight: ['300', '400', '600'],
+  style: ['normal', 'italic'],
 });
-const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"] });
+const mono = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '500'] });
 
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 export default function Home() {
   return (
-    <div className="relative min-h-screen overflow-hidden" style={{ color: "#E7E5EF" }}>
+    <div className="relative min-h-screen overflow-hidden" style={{ color: '#E7E5EF' }}>
       <style>{`
         @keyframes heroIn {
           from { opacity: 0; transform: translateY(20px); }
@@ -48,11 +48,10 @@ export default function Home() {
           className={`${mono.className} hero-enter mb-4 text-center`}
           style={{
             fontSize: 10.5,
-            letterSpacing: "0.25em",
-            color: "rgba(255,255,255,0.35)",
-            textTransform: "uppercase",
-          }}
-        >
+            letterSpacing: '0.25em',
+            color: 'rgba(255,255,255,0.35)',
+            textTransform: 'uppercase',
+          }}>
           Phase 1 · Week 2 · Vercel AI SDK
         </p>
 
@@ -60,21 +59,19 @@ export default function Home() {
         <h1
           className={`${fraunces.className} hero-enter mb-5 text-center`}
           style={{
-            fontSize: "clamp(54px, 11vw, 104px)",
+            fontSize: 'clamp(54px, 11vw, 104px)',
             fontWeight: 300,
-            fontStyle: "italic",
+            fontStyle: 'italic',
             lineHeight: 0.95,
-            letterSpacing: "-0.025em",
-          }}
-        >
-          LLM{" "}
+            letterSpacing: '-0.025em',
+          }}>
+          LLM{' '}
           <span
             style={{
-              background: "linear-gradient(135deg, #ffffff 0%, #e100ff 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
+              background: 'linear-gradient(135deg, #ffffff 0%, #e100ff 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>
             Tools
           </span>
         </h1>
@@ -84,11 +81,10 @@ export default function Home() {
           className="hero-enter mb-16 text-center"
           style={{
             fontSize: 15,
-            color: "rgba(255,255,255,0.3)",
+            color: 'rgba(255,255,255,0.3)',
             maxWidth: 380,
             lineHeight: 1.65,
-          }}
-        >
+          }}>
           Two live experiments in streaming AI, structured outputs, and graceful error handling.
         </p>
 
@@ -186,33 +182,32 @@ function ToolCard({ href, eyebrow, title, description, accent, accentAlt, icon }
       onMouseLeave={() => setHovered(false)}
       onMouseMove={handleMove}
       style={{
-        display: "block",
-        position: "relative",
-        padding: "28px 26px 24px",
+        display: 'block',
+        position: 'relative',
+        padding: '28px 26px 24px',
         borderRadius: 10,
-        border: `1px solid ${hovered ? accent + "60" : "rgba(255,255,255,0.08)"}`,
+        border: `1px solid ${hovered ? accent + '60' : 'rgba(255,255,255,0.08)'}`,
         // Glass over the aurora
-        background: hovered ? `radial-gradient(ellipse 85% 75% at ${pos.x * 100}% ${pos.y * 100}%, ${accent}18 0%, transparent 65%), rgba(11,11,18,0.55)` : "rgba(11,11,18,0.45)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-        textDecoration: "none",
-        color: "inherit",
-        overflow: "hidden",
-        cursor: "pointer",
-        transition: "border-color 250ms, box-shadow 250ms, background 120ms",
-        boxShadow: hovered ? `0 0 0 1px ${accent}25, 0 8px 36px rgba(0,0,0,0.45), 0 0 60px ${accent}12` : "0 2px 16px rgba(0,0,0,0.35)",
-      }}
-    >
+        background: hovered ? `radial-gradient(ellipse 85% 75% at ${pos.x * 100}% ${pos.y * 100}%, ${accent}18 0%, transparent 65%), rgba(11,11,18,0.55)` : 'rgba(11,11,18,0.45)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        textDecoration: 'none',
+        color: 'inherit',
+        overflow: 'hidden',
+        cursor: 'pointer',
+        transition: 'border-color 250ms, box-shadow 250ms, background 120ms',
+        boxShadow: hovered ? `0 0 0 1px ${accent}25, 0 8px 36px rgba(0,0,0,0.45), 0 0 60px ${accent}12` : '0 2px 16px rgba(0,0,0,0.35)',
+      }}>
       {/* Top shimmer rule */}
       <div
         style={{
-          position: "absolute",
+          position: 'absolute',
           top: 0,
-          left: "10%",
-          right: "10%",
+          left: '10%',
+          right: '10%',
           height: 1,
-          background: hovered ? `linear-gradient(90deg, transparent, ${accent}90, ${accentAlt}70, transparent)` : "transparent",
-          transition: "background 300ms",
+          background: hovered ? `linear-gradient(90deg, transparent, ${accent}90, ${accentAlt}70, transparent)` : 'transparent',
+          transition: 'background 300ms',
         }}
       />
 
@@ -222,10 +217,9 @@ function ToolCard({ href, eyebrow, title, description, accent, accentAlt, icon }
           marginBottom: 18,
           color: accent,
           opacity: hovered ? 1 : 0.4,
-          transform: hovered ? "translateY(-2px)" : "translateY(0)",
-          transition: "opacity 250ms, transform 250ms",
-        }}
-      >
+          transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
+          transition: 'opacity 250ms, transform 250ms',
+        }}>
         {icon}
       </div>
 
@@ -233,13 +227,12 @@ function ToolCard({ href, eyebrow, title, description, accent, accentAlt, icon }
       <p
         style={{
           fontSize: 10,
-          letterSpacing: "0.18em",
-          color: "rgba(255,255,255,0.25)",
+          letterSpacing: '0.18em',
+          color: 'rgba(255,255,255,0.25)',
           marginBottom: 7,
-          fontFamily: "var(--font-geist-mono)",
-          textTransform: "uppercase",
-        }}
-      >
+          fontFamily: 'var(--font-geist-mono)',
+          textTransform: 'uppercase',
+        }}>
         {eyebrow}
       </p>
 
@@ -249,10 +242,9 @@ function ToolCard({ href, eyebrow, title, description, accent, accentAlt, icon }
           fontSize: 20,
           fontWeight: 600,
           marginBottom: 10,
-          color: hovered ? accent : "rgba(255,255,255,0.85)",
-          transition: "color 250ms",
-        }}
-      >
+          color: hovered ? accent : 'rgba(255,255,255,0.85)',
+          transition: 'color 250ms',
+        }}>
         {title}
       </h2>
 
@@ -261,9 +253,8 @@ function ToolCard({ href, eyebrow, title, description, accent, accentAlt, icon }
         style={{
           fontSize: 13.5,
           lineHeight: 1.65,
-          color: "rgba(255,255,255,0.3)",
-        }}
-      >
+          color: 'rgba(255,255,255,0.3)',
+        }}>
         {description}
       </p>
 
@@ -271,18 +262,17 @@ function ToolCard({ href, eyebrow, title, description, accent, accentAlt, icon }
       <div
         style={{
           marginTop: 22,
-          display: "inline-flex",
-          alignItems: "center",
+          display: 'inline-flex',
+          alignItems: 'center',
           gap: 6,
           fontSize: 11,
-          letterSpacing: "0.12em",
-          fontFamily: "var(--font-geist-mono)",
+          letterSpacing: '0.12em',
+          fontFamily: 'var(--font-geist-mono)',
           color: accent,
           opacity: hovered ? 1 : 0,
-          transform: hovered ? "translateX(0)" : "translateX(-10px)",
-          transition: "opacity 250ms, transform 250ms",
-        }}
-      >
+          transform: hovered ? 'translateX(0)' : 'translateX(-10px)',
+          transition: 'opacity 250ms, transform 250ms',
+        }}>
         OPEN
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} style={{ width: 12, height: 12 }}>
           <path d="M3 8h10M9 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
